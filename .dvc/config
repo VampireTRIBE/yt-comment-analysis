@@ -1,4 +1,4 @@
 [core]
     remote = myremote
 ['remote "myremote"']
-    url = C:\Users\shaik\AppData\Local\Temp
+    url = s3://my-ytcomment-buketss3
