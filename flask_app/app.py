@@ -1,48 +1,85 @@
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import mlflow
-from mlflow.tracking import MlflowClient
-mlflow.set_tracking_uri("http://44.204.159.230:5000/")
-
-#load model from the model registry
-def load_model_from_registry(model_name,mode_version):
-   model_uri = f"models:/{model_name}/{mode_version}"
-   model =mlflow.pyfunc.load_model(model_uri)
-   return model
-
-# example usage
-model=load_model_from_registry("my_model","1")
-print("model Loaded suceessfully!")
-
+import numpy as np
 import joblib
 import re
-import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from mlflow.tracking import MlflowClient
 
-# Download required NLTK resources (only once)
-nltk.download('stopwords')
-nltk.download('wordnet')
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
-# Preprocessing function
+# Define the preprocessing function
 def preprocess_comment(comment):
-    comment = comment.lower().strip()
-    comment = re.sub(r'\n', ' ', comment)
-    comment = re.sub(r'[^A-Za-z0-9\s!?.,]', '', comment)
-    stop_words = set(stopwords.words('english')) - {'not', 'but', 'however', 'no', 'yet'}
-    comment = ' '.join([word for word in comment.split() if word not in stop_words])
-    lemmatizer = WordNetLemmatizer()
-    return ' '.join([lemmatizer.lemmatize(word) for word in comment.split()])
+    """Apply preprocessing transformations to a comment."""
+    try:
+        # Convert to lowercase
+        comment = comment.lower()
 
-# Load the TF-IDF vectorizer
-vectorizer = joblib.load("tfidf_vectorizer.pkl")  # Make sure this file exists in the same dir
+        # Remove trailing and leading whitespaces
+        comment = comment.strip()
 
-# Input comment
-raw_comment = "good job"
-preprocessed = preprocess_comment(raw_comment)
+        # Remove newline characters
+        comment = re.sub(r'\n', ' ', comment)
 
-# Vectorize and predict
-X = vectorizer.transform([preprocessed])
-prediction = model.predict(X)
+        # Remove non-alphanumeric characters, except punctuation
+        comment = re.sub(r'[^A-Za-z0-9\s!?.,]', '', comment)
 
-# Output
-print(f"Comment: {raw_comment}")
-print(f"Predicted Sentiment: {prediction[0]}")
+        # Remove stopwords but retain important ones for sentiment analysis
+        stop_words = set(stopwords.words('english')) - {'not', 'but', 'however', 'no', 'yet'}
+        comment = ' '.join([word for word in comment.split() if word not in stop_words])
+
+        # Lemmatize the words
+        lemmatizer = WordNetLemmatizer()
+        comment = ' '.join([lemmatizer.lemmatize(word) for word in comment.split()])
+
+        return comment
+    except Exception as e:
+        print(f"Error in preprocessing comment: {e}")
+        return comment
+
+# Load the model and vectorizer from the model registry and local storage
+def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
+    # Set MLflow tracking URI to your server
+    mlflow.set_tracking_uri("http://44.204.159.230:5000/")  # Replace with your MLflow tracking URI
+    client = MlflowClient()
+    model_uri = f"models:/{model_name}/{model_version}"
+    model = mlflow.pyfunc.load_model(model_uri)
+    vectorizer = joblib.load(vectorizer_path)  # Load the vectorizer
+    return model, vectorizer
+
+# Initialize the model and vectorizer
+model, vectorizer = load_model_and_vectorizer("project", "2", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    data = request.json
+    comments = data.get('comments')
+    
+    if not comments:
+        return jsonify({"error": "No comments provided"}), 400
+
+    try:
+        # Preprocess each comment before vectorizing
+        preprocessed_comments = [preprocess_comment(comment) for comment in comments]
+        
+        # Transform comments using the vectorizer
+        transformed_comments = vectorizer.transform(preprocessed_comments)
+        
+        # Make predictions
+        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        
+        # Convert predictions to strings for consistency
+        predictions = [str(pred) for pred in predictions]
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+    
+    # Return the response with original comments and predicted sentiments
+    response = [{"comment": comment, "sentiment": sentiment} for comment, sentiment in zip(comments, predictions)]
+    return jsonify(response)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
