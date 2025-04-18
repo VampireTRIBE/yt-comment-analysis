@@ -83,8 +83,8 @@ stages:
       size: 4119948
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 3e56892a6db4644dbb01bd2c339d4d61
-      size: 4385
+      md5: 78ee412df41a36a22ae8eefc27478a0e
+      size: 5674
     - path: tfidf_vectorizer.pkl
       hash: md5
       md5: 417ae43b36b54ba003663348ec7f77b2
