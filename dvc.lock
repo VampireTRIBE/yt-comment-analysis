@@ -83,9 +83,30 @@ stages:
       size: 3906408
     - path: src/model/model_evaluation.py
       hash: md5
-      md5: 62782c04225f43838415310e69998ac1
-      size: 7286
+      md5: 76de751642b4705d94966fddd86f5088
+      size: 7354
     - path: tfidf_vectorizer.pkl
       hash: md5
       md5: 3fbce7ccd6c5437b909dcb94e8ca5e71
       size: 36867
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 2e81d6eb492d93987768f731e904781c
+      size: 1680931
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 18b3faba324bc010ea34ff2d9244645f
+      size: 5238770
+    - path: src/data/data_preprocessing.py
+      hash: md5
+      md5: f8be944ba77524380896038017d50608
+      size: 3858
+    outs:
+    - path: data/interim
+      hash: md5
+      md5: 056a565b1ab539e7c535709c3d4b5e92.dir
+      size: 5134850
+      nfiles: 2
